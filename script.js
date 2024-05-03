@@ -1,4 +1,4 @@
-const apikey = '';
+const apikey = '1bfb148d-105e-4eb7-a99e-8ae0238e2d4a';
 const apihost = 'https://todo-api.coderslab.pl';
 
 
@@ -82,7 +82,7 @@ function clearErrorMessage(someInput){
     }
 }
 
-function titleValidation(titleInput){
+function isTitleOk(titleInput){
     titleInput.addEventListener("input", function(event) {
         clearErrorMessage(titleInput);
     });
@@ -96,16 +96,27 @@ function titleValidation(titleInput){
 
         // Insert the error message after the input element
         titleInput.insertAdjacentElement('afterend', errorTitle);
+        return false;
     }
+    return true;
 }
 
 function newTaskSubmit(submittedForm){
     submittedForm.addEventListener("submit", function (event){
+        let isValid = true;
+        // isValid = true
         event.preventDefault();
         const titleInput = this.querySelector('input[name="title"]');
         const descriptionInput = this.querySelector('input[name="description"]')
 
-        titleValidation(titleInput)
+        // isTitleOk(titleInput)
+
+        if (isTitleOk(titleInput)) {
+            console.log("CAN CREATE TASK")
+        } else {
+            console.log("DO NOT CREATE TASK!!")
+            isValid = false;
+        }
 
 
         console.log(titleInput.value)
@@ -116,6 +127,32 @@ function apiDeleteTask(id){
     console.log(`id to delete: ${id}`)
 }
 
+function apiCreateOperationForTask(){
+    // submit na form od dodawania operacji do taska
+    renderOperation()
+}
+
+// dodawanie czasu operacji (put na adres)
+function apiUpdateOperation(){
+    // eventListener "click" na przyciski dodawania czasu
+    // update timeSpent
+}
+
+
+//usuwanie operacji z zadania
+function apiDeleteOperation(operationId) {
+
+}
+
+//zamykanie zadania
+
+function apiUpdateTask(taskId, taskTitle, taskDescription, taskStatus) {
+    // put na adres
+// zmieniamy status zadania z open na closed, tytul, descirption,  zostaja jak byly
+    //
+    // event listener click on finish button
+    // po odpowiedzi z serwera, usunac odpowiednie elementy z zadania: przyciski "Finish", "+1h", "+15m" oraz "Delete" przy operacjach
+}
 document.addEventListener('DOMContentLoaded', function() {
     const newTaskForm = document.querySelector('.js-task-adding-form');
     newTaskSubmit(newTaskForm);
@@ -124,14 +161,14 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log(tasksList)
             tasksListProcessor(tasksList)
         })
-    apiCreateTask(apihost + '/ADDRESSCREATETASL', apikey)
-        .then(taskCreatedResponse => {
-            renderTask(taskCreatedResponse.addedDate,
-                taskCreatedResponse.description,
-                taskCreatedResponse.id,
-                taskCreatedResponse.status,
-                taskCreatedResponse.title)
-        })
+    // apiCreateTask(apihost + '/ADDRESSCREATETASL', apikey)
+    //     .then(taskCreatedResponse => {
+    //         renderTask(taskCreatedResponse.addedDate,
+    //             taskCreatedResponse.description,
+    //             taskCreatedResponse.id,
+    //             taskCreatedResponse.status,
+    //             taskCreatedResponse.title)
+    //     })
 
 
 
