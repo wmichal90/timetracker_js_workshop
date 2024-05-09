@@ -51,13 +51,7 @@ function renderTask(addedDate, description, id, status, title){
     const inputTextOperations = document.createElement("input")
     const divInputGroupAppend = document.createElement("div");
 
-    apiListOperationsForTask(apitasks, apikey, id)
-        .then(resp => {
-            if (!resp.error){
-                // console.log(`Operations for id: ${id}, response: ${resp}`);
-                console.log('response for operations: ', resp.data)
-            }
-        })
+
 
     deleteButton.innerText = 'Delete';
     finishButton.innerText = 'Finish';
@@ -76,6 +70,15 @@ function renderTask(addedDate, description, id, status, title){
     inputTextOperations.className = "form-control";
     divInputGroupAppend.className = "input-group-append";
     addOperationButton.className = "btn btn-info";
+
+    apiListOperationsForTask(apitasks, apikey, id)
+        .then(resp => {
+            if (!resp.error){
+                // console.log(`Operations for id: ${id}, response: ${resp}`);
+                console.log('response for operations: ', resp.data)
+                tasksOperationsProcessor(resp.data, ulOperations)
+            }
+        })
 
     inputTextOperations.setAttribute("type", "text");
     inputTextOperations.setAttribute("placeholder", "Operation description");
@@ -107,8 +110,17 @@ function renderTask(addedDate, description, id, status, title){
 
     main.appendChild(section);
 
+
+
     deleteButton.addEventListener("click", function(event){
-        apiDeleteTask(id)
+        apiDeleteTask(apitasks, apikey, id)
+            .then(resp => {
+                if (!resp.error){
+                    console.log("Deleted: ", resp.data);
+                    section.remove();
+                }
+            })
+
     //     usuniesz z drzewa DOM całe <section>
 
     })
@@ -137,6 +149,16 @@ function tasksListProcessor(tasksList){
     })
 }
 
+function tasksOperationsProcessor(tasksOperations, ulListPerTask){
+    tasksOperations.forEach(function (operation){
+        renderOperation(ulListPerTask,
+            operation.task.status,
+            operation.id,
+            operation.description,
+            operation.timeSpent)
+    })
+}
+
 function apiListOperationsForTask(serverAddress, apiKey, taskId){
     return fetch(serverAddress + `/${taskId}/operations`, {
         method: 'get',
@@ -156,8 +178,101 @@ function apiListOperationsForTask(serverAddress, apiKey, taskId){
     // console.log("apiListOperationsForTask")
 }
 
-function renderOperation(ulList, status){
-    console.log("renderOperation")
+function transformTime(timeInMinutes){
+    let hours;
+    let minutes;
+
+    hours = Math.floor(timeInMinutes / 60)
+    if (hours > 0){
+        minutes = timeInMinutes % 60;
+        return [hours, minutes]
+    }
+    return [timeInMinutes];
+
+}
+
+function updateBadgeInMinutesForOperation(timeSpent, time){
+    // descriptionDiv.innerText = operationDescription;
+    let timeTransformed;
+    timeTransformed = transformTime(timeSpent);
+    if (timeTransformed.length > 1){
+        time.innerText = timeTransformed[0] + "h " + timeTransformed[1] + "m";
+    } else {
+        time.innerText = timeTransformed[0] + "m";
+    }
+
+    // return [descriptionDiv, time]
+}
+
+function renderOperation(ulList, taskStatus, operationId, operationDescription, timeSpent){
+    let timeTransformed;
+    const li = document.createElement("li");
+    const descriptionDiv = document.createElement("div");
+    const timeDiv = document.createElement("div");
+    const plus15minButton = document.createElement("button");
+    const plus1hButton = document.createElement("button");
+    const deleteOperationButton = document.createElement("button");
+    const time = document.createElement("span");
+
+
+
+
+
+    plus15minButton.className = "btn btn-outline-success btn-sm mr-2";
+    plus1hButton.className = "btn btn-outline-success btn-sm mr-2";
+    deleteOperationButton.className = "btn btn-outline-danger btn-sm";
+
+    li.className = "list-group-item d-flex justify-content-between align-items-center";
+    time.className = "badge badge-success badge-pill ml-2";
+
+    plus15minButton.innerText = "+15m";
+    plus1hButton.innerText = "+1h";
+    deleteOperationButton.innerText = "Delete"
+
+
+
+    descriptionDiv.innerText = operationDescription;
+    timeTransformed = transformTime(timeSpent);
+    if (timeTransformed.length > 1){
+        time.innerText = timeTransformed[0] + "h " + timeTransformed[1] + "m";
+    } else {
+        time.innerText = timeTransformed[0] + "m";
+    }
+
+
+
+    descriptionDiv.appendChild(time);
+    li.appendChild(descriptionDiv);
+    if (taskStatus === "open"){
+        timeDiv.appendChild(plus15minButton);
+        timeDiv.appendChild(plus1hButton);
+        timeDiv.appendChild(deleteOperationButton);
+        li.appendChild(timeDiv)
+    }
+    ulList.appendChild(li)
+
+    plus15minButton.addEventListener("click", function(event){
+        timeSpent += 15;
+        updateBadgeInMinutesForOperation(timeSpent, time)
+        console.log(timeSpent)
+        // update timeSpent for given operation on backend
+
+    })
+
+    plus1hButton.addEventListener("click", function(event){
+        timeSpent += 60;
+        updateBadgeInMinutesForOperation(timeSpent, time)
+        console.log(timeSpent)
+        // update timeSpent for given operation on backend
+
+    })
+
+    // console.log(`lista operacji: ${ulList}`);
+    // console.log(`Status zadania: ${taskStatus}`);
+    // console.log(`id operacji: ${operationId}`);
+    // console.log(`opis operacji: ${operationDescription}`);
+    // console.log(`czas spedzony: ${timeSpent}`);
+
 }
 
 
@@ -206,6 +321,17 @@ function isTitleOk(titleInput){
     return true;
 }
 
+function viewTasks(){
+    apiListTasks(apihost + '/api/tasks', apikey)
+        .then(tasksListResponse => {
+            console.log(tasksListResponse)
+            if (!tasksListResponse.error){
+
+                tasksListProcessor(tasksListResponse.data)
+            }
+        })
+}
+
 function newTaskSubmit(submittedForm){
     submittedForm.addEventListener("submit", function (event){
         let isValid = true;
@@ -213,6 +339,7 @@ function newTaskSubmit(submittedForm){
         event.preventDefault();
         const titleInput = this.querySelector('input[name="title"]');
         const descriptionInput = this.querySelector('input[name="description"]')
+        clearErrorMessage(titleInput);
 
         // isTitleOk(titleInput)
 
@@ -224,19 +351,50 @@ function newTaskSubmit(submittedForm){
 
                         console.log('Odpowiedź z serwera to:', taskCreated.data)
                     }
+                    return taskCreated.data;
+                })
+                .then(data => {
+                    renderTask(data.addedDate,
+                        data.description,
+                        data.id,
+                        data.status,
+                        data.title)
+
+                    this.reset();
+
                 })
         } else {
             console.log("DO NOT CREATE TASK!!")
-            isValid = false;
+            alert("Task nie utworzony!")
+            this.reset();
+            // isValid = false;
         }
 
 
+
+
         console.log(titleInput.value)
+        // location.href = location.href;
+        // viewTasks();
     })
 }
 
-function apiDeleteTask(id){
-    console.log(`id to delete: ${id}`)
+function apiDeleteTask(serverAddress, apiKey, taskIDToDelete){
+    console.log(`id to delete: ${taskIDToDelete}`)
+    return fetch(serverAddress + `/${taskIDToDelete}`, {
+        method: 'delete',
+        headers: {
+            Authorization: apiKey,
+            'Content-Type': 'application/json'
+        }
+    })
+        .then(response => {
+            if (!response.ok){
+                alert('Wystąpił błąd! Otwórz devtools i zakładkę Sieć/Network, i poszukaj przyczyny');
+            }
+            console.log(response)
+            return response.json()
+        })
 }
 
 function apiCreateOperationForTask(){
@@ -266,17 +424,20 @@ function apiUpdateTask(taskId, taskTitle, taskDescription, taskStatus) {
     // event listener click on finish button
     // po odpowiedzi z serwera, usunac odpowiednie elementy z zadania: przyciski "Finish", "+1h", "+15m" oraz "Delete" przy operacjach
 }
+
+
 document.addEventListener('DOMContentLoaded', function() {
     const newTaskForm = document.querySelector('.js-task-adding-form');
     newTaskSubmit(newTaskForm);
-    apiListTasks(apihost + '/api/tasks', apikey)
-        .then(tasksListResponse => {
-            console.log(tasksListResponse)
-            if (!tasksListResponse.error){
-
-                tasksListProcessor(tasksListResponse.data)
-            }
-        })
+    viewTasks();
+    // apiListTasks(apihost + '/api/tasks', apikey)
+    //     .then(tasksListResponse => {
+    //         console.log(tasksListResponse)
+    //         if (!tasksListResponse.error){
+    //
+    //             tasksListProcessor(tasksListResponse.data)
+    //         }
+    //     })
     // apiCreateTask(apihost + '/ADDRESSCREATETASL', apikey)
     //     .then(taskCreatedResponse => {
     //         renderTask(taskCreatedResponse.addedDate,
