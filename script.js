@@ -65,11 +65,12 @@ function renderTask(addedDate, description, id, status, title){
     divHeader.className = "card-header d-flex justify-content-between align-items-center";
     h6TaskDescription.className = "card-subtitle text-muted";
     ulOperations.className = "list-group list-group-flush";
-    divFormCard.className = "card-body";
-    divFormInputGroup.className = "input-group";
-    inputTextOperations.className = "form-control";
-    divInputGroupAppend.className = "input-group-append";
-    addOperationButton.className = "btn btn-info";
+    divFormCard.className = "card-body"; // to delete when finish task button clicked
+    // formOperations.className = "js-task-open-only";  to delete when finish task button clicked
+    divFormInputGroup.className = "input-group"; // to delete when finish task button clicked
+    inputTextOperations.className = "form-control"; // to delete when finish task button clicked
+    divInputGroupAppend.className = "input-group-append"; // to delete when finish task button clicked
+    addOperationButton.className = "btn btn-info"; // to delete when finish task button clicked
 
     apiListOperationsForTask(apitasks, apikey, id)
         .then(resp => {
@@ -106,7 +107,10 @@ function renderTask(addedDate, description, id, status, title){
 
     section.appendChild(divHeader)
     section.appendChild(ulOperations);
-    section.appendChild(divFormCard);
+    if (status === 'open') {
+        section.appendChild(divFormCard);
+    }
+
 
     main.appendChild(section);
 
@@ -126,15 +130,46 @@ function renderTask(addedDate, description, id, status, title){
     })
 
     finishButton.addEventListener("click", function(event){
-        apiUpdateTask(id, title, description, status)
+        apiUpdateTask(apitasks, apikey, id, title, description, "closed")
+            .then( closedTask => {
+                    if (!closedTask.error) {
+                        const sectionTaskToClose = section.querySelectorAll('.js-task-open-only');
+                        sectionTaskToClose.forEach(function(element, index, arr){
+                            console.log(element)
+                            element.remove()
+                        })
+                        divFormCard.remove()
+                        this.remove();
+                    }
+                })
     })
 
     formOperations.addEventListener("submit", function(event){
         event.preventDefault();
-        console.log("here should be the code for handling adding operation for the task of id: ", id)
+        const operationInput = this.querySelector('.form-control');
+
+
+        clearErrorMessage(operationInput.parentElement);
+        if (isOperationDescriptionOk(operationInput, 'Operation description cannot be empty!')){
+            console.log(`Updating the task: ${id} of operation with description: ${operationInput.value}`)
+            console.log("currentInput: ", operationInput.value);
+            apiCreateOperationForTask(apitasks, apikey, id, operationInput.value)
+                .then( resp => {
+                        if (!resp.error){
+                            console.log("returning from created operation: ", resp.data);
+                            return resp.data;
+
+                            // renderOperation(ulOperations, status, )
+                        }
+                    }).then(operationResponse => {
+                        renderOperation(ulOperations, status, operationResponse.id, operationResponse.description, operationResponse.timeSpent );
+            })
+        }
+        this.reset();
     })
     console.log(`task ID: ${id}`);
     console.log(`task title: ${title}`)
+    console.log(`task status: ${status}`)
 }
 
 function tasksListProcessor(tasksList){
@@ -218,9 +253,9 @@ function renderOperation(ulList, taskStatus, operationId, operationDescription, 
 
 
 
-    plus15minButton.className = "btn btn-outline-success btn-sm mr-2";
-    plus1hButton.className = "btn btn-outline-success btn-sm mr-2";
-    deleteOperationButton.className = "btn btn-outline-danger btn-sm";
+    plus15minButton.className = "btn btn-outline-success btn-sm mr-2 js-task-open-only";
+    plus1hButton.className = "btn btn-outline-success btn-sm mr-2 js-task-open-only";
+    deleteOperationButton.className = "btn btn-outline-danger btn-sm js-task-open-only";
 
     li.className = "list-group-item d-flex justify-content-between align-items-center";
     time.className = "badge badge-success badge-pill ml-2";
@@ -232,12 +267,13 @@ function renderOperation(ulList, taskStatus, operationId, operationDescription, 
 
 
     descriptionDiv.innerText = operationDescription;
-    timeTransformed = transformTime(timeSpent);
-    if (timeTransformed.length > 1){
-        time.innerText = timeTransformed[0] + "h " + timeTransformed[1] + "m";
-    } else {
-        time.innerText = timeTransformed[0] + "m";
-    }
+    updateBadgeInMinutesForOperation(timeSpent, time);
+    // timeTransformed = transformTime(timeSpent);
+    // if (timeTransformed.length > 1){
+    //     time.innerText = timeTransformed[0] + "h " + timeTransformed[1] + "m";
+    // } else {
+    //     time.innerText = timeTransformed[0] + "m";
+    // }
 
 
 
@@ -252,19 +288,46 @@ function renderOperation(ulList, taskStatus, operationId, operationDescription, 
     ulList.appendChild(li)
 
     plus15minButton.addEventListener("click", function(event){
-        timeSpent += 15;
-        updateBadgeInMinutesForOperation(timeSpent, time)
-        console.log(timeSpent)
+        // timeSpent += 15;
+        // updateBadgeInMinutesForOperation(timeSpent, time)
+        // console.log(timeSpent)
+        apiUpdateOperation(apioperations, apikey, operationId, operationDescription, timeSpent + 15)
+            .then(updatedOperation => {
+                if (!updatedOperation.error){
+                    console.log("updated operation response is: ", updatedOperation.data);
+                    timeSpent += 15;
+                    updateBadgeInMinutesForOperation(timeSpent, time);
+                }
+            })
         // update timeSpent for given operation on backend
 
     })
 
     plus1hButton.addEventListener("click", function(event){
-        timeSpent += 60;
-        updateBadgeInMinutesForOperation(timeSpent, time)
-        console.log(timeSpent)
+        // timeSpent += 60;
+        // updateBadgeInMinutesForOperation(timeSpent, time)
+        // console.log(timeSpent)
+        apiUpdateOperation(apioperations, apikey, operationId, operationDescription, timeSpent + 60)
+            .then(updatedOperation => {
+                if (!updatedOperation.error){
+                    console.log("updated operation response is: ", updatedOperation.data);
+                    timeSpent += 60;
+                    updateBadgeInMinutesForOperation(timeSpent, time);
+                }
+            })
         // update timeSpent for given operation on backend
 
+    })
+
+    deleteOperationButton.addEventListener("click", function(event){
+        apiDeleteOperation(apioperations, apikey, operationId)
+            .then(deletedOperation => {
+                if (!deletedOperation.error){
+                    li.remove();
+                    console.log("deleted operation is: ", deletedOperation.data);
+                    // renderOperation(ulList, taskStatus, operationId, operationDescription, timeSpent)
+                }
+            })
     })
 
     // console.log(`lista operacji: ${ulList}`);
@@ -302,7 +365,22 @@ function clearErrorMessage(someInput){
     }
 }
 
-function isTitleOk(titleInput){
+function isOperationDescriptionOk(operationDescriptionInput, errorMessage){
+    operationDescriptionInput.addEventListener("input", function (event){
+        clearErrorMessage(operationDescriptionInput.parentElement)
+    })
+
+    if (operationDescriptionInput.value === ""){
+        const errorTitle = document.createElement('span');
+        errorTitle.textContent = errorMessage;
+        errorTitle.classList.add('error-message');
+        operationDescriptionInput.parentElement.insertAdjacentElement('afterend', errorTitle);
+        return false
+    }
+    return true;
+}
+
+function isTitleOk(titleInput, errorMessage){
     titleInput.addEventListener("input", function(event) {
         clearErrorMessage(titleInput);
     });
@@ -311,8 +389,10 @@ function isTitleOk(titleInput){
 
         // Create a new span element for the error message
         const errorTitle = document.createElement('span');
-        errorTitle.textContent = 'Title cannot be empty!';
+        errorTitle.textContent = errorMessage;
         errorTitle.classList.add('error-message'); // Add a CSS class for styling if needed
+        // errorTitle.style.display = 'block';
+        // errorTitle.style.width = '100%';
 
         // Insert the error message after the input element
         titleInput.insertAdjacentElement('afterend', errorTitle);
@@ -343,7 +423,7 @@ function newTaskSubmit(submittedForm){
 
         // isTitleOk(titleInput)
 
-        if (isTitleOk(titleInput)) {
+        if (isTitleOk(titleInput, 'Title cannot be empty!')) {
             console.log("CAN CREATE TASK")
             apiCreateTask(apitasks, apikey, titleInput.value, descriptionInput.value)
                 .then(taskCreated => {
@@ -397,27 +477,87 @@ function apiDeleteTask(serverAddress, apiKey, taskIDToDelete){
         })
 }
 
-function apiCreateOperationForTask(){
+function apiCreateOperationForTask(serverAddress, apiKey, taskId, description){
     // submit na form od dodawania operacji do taska
-    renderOperation()
+    return fetch(serverAddress + `/${taskId}/operations`, {
+        method: 'post',
+        headers: {
+            Authorization: apiKey,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({description: description, timeSpent: 0})
+    })
+        .then(response => {
+            if (!response.ok){
+                alert('Wystąpił błąd! Otwórz devtools i zakładkę Sieć/Network, i poszukaj przyczyny');
+            }
+            console.log(response);
+            return response.json()
+        })
+    // renderOperation()
 }
 
 // dodawanie czasu operacji (put na adres)
-function apiUpdateOperation(){
+function apiUpdateOperation(serverAddress, apiKey, operationId, description, timeSpent){
+    return fetch(serverAddress + `/${operationId}`, {
+        method: 'put',
+        headers: {
+            Authorization: apiKey,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({description: description, timeSpent: timeSpent})
+    })
+        .then(response => {
+            if (!response.ok){
+                alert('Wystąpił błąd! Otwórz devtools i zakładkę Sieć/Network, i poszukaj przyczyny');
+            }
+            console.log(response);
+            return response.json();
+        })
     // eventListener "click" na przyciski dodawania czasu
     // update timeSpent
 }
 
 
 //usuwanie operacji z zadania
-function apiDeleteOperation(operationId) {
+function apiDeleteOperation(serverAddress, apiKey, operationId) {
+    return fetch(serverAddress + `/${operationId}`, {
+        method: 'delete',
+        headers: {
+            Authorization: apiKey,
+            'Content-Type': 'application/json'
+        }
+
+    })
+        .then(response => {
+            if (!response.ok){
+                alert('Wystąpił błąd! Otwórz devtools i zakładkę Sieć/Network, i poszukaj przyczyny');
+            }
+            console.log(response);
+            return response.json();
+        })
 
 }
 
 // zamykanie zadania
 
-function apiUpdateTask(taskId, taskTitle, taskDescription, taskStatus) {
+function apiUpdateTask(serverAddress, apiKey, taskId, taskTitle, taskDescription, taskStatus) {
     console.log(`Status: ${taskStatus} do zmiany. Task id: ${taskId}, taskTitle: ${taskTitle}, taskDescription: ${taskDescription}`)
+    return fetch(serverAddress + `/${taskId}`, {
+        method: 'put',
+        headers: {
+            Authorization: apiKey,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({title: taskTitle, description: taskDescription, status: taskStatus})
+    })
+        .then(response => {
+            if (!response.ok){
+                alert('Wystąpił błąd! Otwórz devtools i zakładkę Sieć/Network, i poszukaj przyczyny');
+            }
+            console.log(response);
+            return response.json();
+        })
     // put na adres
 // zmieniamy status zadania z open na closed, tytul, descirption,  zostaja jak byly
     //
